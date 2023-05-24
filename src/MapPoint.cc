@@ -172,11 +172,12 @@ KeyFrame* MapPoint::GetReferenceKeyFrame()
  * @param pKF KeyFrame
  * @param idx MapPoint在KeyFrame中的索引
  */
+//更新作用
 void MapPoint::AddObservation(KeyFrame* pKF, int idx)
 {
     unique_lock<mutex> lock(mMutexFeatures);
     tuple<int,int> indexes;
-
+    //地图点的观测中找当前帧
     if(mObservations.count(pKF)){
         indexes = mObservations[pKF];
     }
@@ -201,7 +202,7 @@ void MapPoint::AddObservation(KeyFrame* pKF, int idx)
 }
 
 // 删除某个关键帧对当前地图点的观测
-void MapPoint::EraseObservation(KeyFrame* pKF, bool erase)
+void MapPoint::EraseObservation(KeyFrame* pKF)
 {
     bool bBad=false;
     {
@@ -236,7 +237,7 @@ void MapPoint::EraseObservation(KeyFrame* pKF, bool erase)
     }
     // 告知可以观测到该MapPoint的Frame，该MapPoint已被删除
     if(bBad)
-        SetBadFlag(erase);
+        SetBadFlag();
 }
 
 // 能够观测到当前地图点的所有关键帧及该地图点在KF中的索引
@@ -260,7 +261,7 @@ int MapPoint::Observations()
  * @brief 告知可以观测到该MapPoint的Frame，该MapPoint已被删除
  * 
  */
-void MapPoint::SetBadFlag(bool erase)
+void MapPoint::SetBadFlag()
 {
     map<KeyFrame*, tuple<int,int>> obs;
     {
@@ -285,8 +286,7 @@ void MapPoint::SetBadFlag(bool erase)
     }
 
     // 擦除该MapPoint申请的内存
-    if (erase)
-        mpMap->EraseMapPoint(this);
+    mpMap->EraseMapPoint(this);
 }
 
 /**
@@ -555,7 +555,7 @@ tuple<int,int> MapPoint::GetIndexInKeyFrame(KeyFrame *pKF)
 bool MapPoint::IsInKeyFrame(KeyFrame *pKF)
 {
     unique_lock<mutex> lock(mMutexFeatures);
-    return (mObservations.count(pKF));
+    return (mObservations.count(pKF));//是否存在KEY
 }
 
 /**
@@ -636,7 +636,7 @@ void MapPoint::UpdateNormalAndDepth()
     {
         unique_lock<mutex> lock3(mMutexPos);
         // 使用方法见PredictScale函数前的注释
-        mfMaxDistance = dist*levelScaleFactor;  // 观测到该点的距离上限
+        mfMaxDistance = dist*levelScaleFactor;  // 观测到该点的距离上限，估计值
         mfMinDistance = mfMaxDistance/pRefKF->mvScaleFactors[nLevels-1];  // 观测到该点的距离下限
         mNormalVector = normal/n;  // 获得地图点平均的观测方向
     }
@@ -770,9 +770,7 @@ void MapPoint::PreSave(set<KeyFrame*>& spKF,set<MapPoint*>& spMP)
     mBackupObservationsId1.clear();
     mBackupObservationsId2.clear();
     // Save the id and position in each KF who view it
-    std::vector<KeyFrame*> erase_kfs;
-    for(std::map<KeyFrame*,std::tuple<int,int> >::const_iterator it = mObservations.begin(), 
-        end = mObservations.end(); it != end; ++it)
+    for(std::map<KeyFrame*,std::tuple<int,int> >::const_iterator it = mObservations.begin(), end = mObservations.end(); it != end; ++it)
     {
         KeyFrame* pKFi = it->first;
         if(spKF.find(pKFi) != spKF.end())
@@ -782,11 +780,10 @@ void MapPoint::PreSave(set<KeyFrame*>& spKF,set<MapPoint*>& spMP)
         }
         else
         {
-            erase_kfs.push_back(pKFi); 
+            EraseObservation(pKFi);
         }
     }
-    for (auto pKFi : erase_kfs)
-        EraseObservation(pKFi, false);
+
     // Save the id of the reference KF
     // 3. 备份参考关键帧ID
     if(spKF.find(mpRefKF) != spKF.end())

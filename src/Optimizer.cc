@@ -1782,7 +1782,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, Map *pMap
                     if (pMP->mnBALocalForKF != pKF->mnId)
                     {
                         lLocalMapPoints.push_back(pMP);
-                        pMP->mnBALocalForKF = pKF->mnId;
+                        pMP->mnBALocalForKF = pKF->mnId;//防止重复添加
                     }
                 }
         }
@@ -1865,7 +1865,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, Map *pMap
 
     g2o::OptimizationAlgorithmLevenberg *solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
     if (pMap->IsInertial())
-        solver->setUserLambdaInit(100.0);
+        solver->setUserLambdaInit(100.0);//？？？
 
     optimizer.setAlgorithm(solver);
     optimizer.setVerbose(false);
@@ -1996,8 +1996,8 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, Map *pMap
 
                     ORB_SLAM3::EdgeSE3ProjectXYZ *e = new ORB_SLAM3::EdgeSE3ProjectXYZ();
 
-                    e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(id)));
-                    e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(pKFi->mnId)));
+                    e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(id)));//0 地图点
+                    e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(pKFi->mnId)));//1 关键帧
                     e->setMeasurement(obs);
                     const float &invSigma2 = pKFi->mvInvLevelSigma2[kpUn.octave];
                     e->setInformation(Eigen::Matrix2d::Identity() * invSigma2);
@@ -2164,7 +2164,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, Map *pMap
     }
 
     // Recover optimized data
-    // Keyframes
+    // Keyframes 更新位姿
     bool bShowStats = false;
     for (list<KeyFrame *>::iterator lit = lLocalKeyFrames.begin(), lend = lLocalKeyFrames.end(); lit != lend; lit++)
     {
@@ -2175,7 +2175,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, Map *pMap
         pKFi->SetPose(Tiw);
     }
 
-    // Points
+    // Points 更新地图点
     for (list<MapPoint *>::iterator lit = lLocalMapPoints.begin(), lend = lLocalMapPoints.end(); lit != lend; lit++)
     {
         MapPoint *pMP = *lit;
@@ -3735,14 +3735,14 @@ void Optimizer::InertialOptimization(
 
     // Biases
     // 3. 确定偏置节点，陀螺仪与加速度计
-    VertexGyroBias *VG = new VertexGyroBias(vpKFs.front());
+    VertexGyroBias *VG = new VertexGyroBias(vpKFs.front());//一个陀螺仪节点
     VG->setId(maxKFid * 2 + 2);
     if (bFixedVel)
         VG->setFixed(true);
     else
         VG->setFixed(false);
     optimizer.addVertex(VG);
-    VertexAccBias *VA = new VertexAccBias(vpKFs.front());
+    VertexAccBias *VA = new VertexAccBias(vpKFs.front());//一个加速度计节点
     VA->setId(maxKFid * 2 + 3);
     if (bFixedVel)
         VA->setFixed(true);
@@ -3775,7 +3775,7 @@ void Optimizer::InertialOptimization(
     optimizer.addVertex(VGDir);
     VertexScale *VS = new VertexScale(scale);
     VS->setId(maxKFid * 2 + 5);
-    VS->setFixed(!bMono); // Fixed for stereo case
+    VS->setFixed(!bMono); // Fixed for stereo case 双目不优化尺度
     optimizer.addVertex(VS);
 
     // Graph edges
@@ -3801,14 +3801,14 @@ void Optimizer::InertialOptimization(
             // 6.1 检查节点指针是否为空
             // 将pKFi偏置设定为上一关键帧的偏置
             pKFi->mpImuPreintegrated->SetNewBias(pKFi->mPrevKF->GetImuBias());
-            g2o::HyperGraph::Vertex *VP1 = optimizer.vertex(pKFi->mPrevKF->mnId);
-            g2o::HyperGraph::Vertex *VV1 = optimizer.vertex(maxKFid + (pKFi->mPrevKF->mnId) + 1);
-            g2o::HyperGraph::Vertex *VP2 = optimizer.vertex(pKFi->mnId);
-            g2o::HyperGraph::Vertex *VV2 = optimizer.vertex(maxKFid + (pKFi->mnId) + 1);
-            g2o::HyperGraph::Vertex *VG = optimizer.vertex(maxKFid * 2 + 2);
-            g2o::HyperGraph::Vertex *VA = optimizer.vertex(maxKFid * 2 + 3);
-            g2o::HyperGraph::Vertex *VGDir = optimizer.vertex(maxKFid * 2 + 4);
-            g2o::HyperGraph::Vertex *VS = optimizer.vertex(maxKFid * 2 + 5);
+            g2o::HyperGraph::Vertex *VP1 = optimizer.vertex(pKFi->mPrevKF->mnId);//前帧位姿节点
+            g2o::HyperGraph::Vertex *VV1 = optimizer.vertex(maxKFid + (pKFi->mPrevKF->mnId) + 1);//前帧速度节点
+            g2o::HyperGraph::Vertex *VP2 = optimizer.vertex(pKFi->mnId);//当前帧位姿节点
+            g2o::HyperGraph::Vertex *VV2 = optimizer.vertex(maxKFid + (pKFi->mnId) + 1);//当前帧速度节点
+            g2o::HyperGraph::Vertex *VG = optimizer.vertex(maxKFid * 2 + 2);//陀螺仪节点
+            g2o::HyperGraph::Vertex *VA = optimizer.vertex(maxKFid * 2 + 3);//加速度节点
+            g2o::HyperGraph::Vertex *VGDir = optimizer.vertex(maxKFid * 2 + 4);//重力方向节点
+            g2o::HyperGraph::Vertex *VS = optimizer.vertex(maxKFid * 2 + 5);//尺度节点
             if (!VP1 || !VV1 || !VG || !VA || !VP2 || !VV2 || !VGDir || !VS)
             {
                 cout << "Error" << VP1 << ", " << VV1 << ", " << VG << ", " << VA << ", " << VP2 << ", " << VV2 << ", " << VGDir << ", " << VS << endl;
@@ -3838,7 +3838,7 @@ void Optimizer::InertialOptimization(
 
     optimizer.setVerbose(false);
     optimizer.initializeOptimization();
-    optimizer.optimize(its);
+    optimizer.optimize(its);//200次迭代
 
     // 7. 取数
     scale = VS->estimate();
@@ -3853,7 +3853,7 @@ void Optimizer::InertialOptimization(
     ba << VA->estimate();
     scale = VS->estimate();
 
-    IMU::Bias b(vb[3], vb[4], vb[5], vb[0], vb[1], vb[2]);
+    IMU::Bias b(vb[3], vb[4], vb[5], vb[0], vb[1], vb[2]);//加速度，角速度
     Rwg = VGDir->estimate().Rwg;
 
     // Keyframes velocities and biases
@@ -3872,7 +3872,7 @@ void Optimizer::InertialOptimization(
         {
             pKFi->SetNewBias(b);
             if (pKFi->mpImuPreintegrated)
-                pKFi->mpImuPreintegrated->Reintegrate();
+                pKFi->mpImuPreintegrated->Reintegrate();//预积分速算
         }
         else
             pKFi->SetNewBias(b);

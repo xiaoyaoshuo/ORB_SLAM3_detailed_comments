@@ -304,6 +304,7 @@ Sophus::SE3f System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, 
     // Check mode change
     {
         unique_lock<mutex> lock(mMutexMode);
+        //定位模式
         if(mbActivateLocalizationMode)
         {
             mpLocalMapper->RequestStop();
@@ -317,6 +318,7 @@ Sophus::SE3f System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, 
             mpTracker->InformOnlyTracking(true);
             mbActivateLocalizationMode = false;
         }
+        //建图模式
         if(mbDeactivateLocalizationMode)
         {
             mpTracker->InformOnlyTracking(false);
@@ -328,13 +330,13 @@ Sophus::SE3f System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, 
     // Check reset
     {
         unique_lock<mutex> lock(mMutexReset);
-        if(mbReset)
+        if(mbReset)//重置tracking
         {
             mpTracker->Reset();
             mbReset = false;
             mbResetActiveMap = false;
         }
-        else if(mbResetActiveMap)
+        else if(mbResetActiveMap)//重置地图
         {
             mpTracker->ResetActiveMap();
             mbResetActiveMap = false;
@@ -479,6 +481,7 @@ Sophus::SE3f System::TrackMonocular(const cv::Mat &im, const double &timestamp, 
             // 关闭线程可以使得别的线程得到更多的资源
             mbActivateLocalizationMode = false;
         }
+        //关闭定位模式，打开同时定位和建图
         if(mbDeactivateLocalizationMode)
         {
             mpTracker->InformOnlyTracking(false);
@@ -490,7 +493,7 @@ Sophus::SE3f System::TrackMonocular(const cv::Mat &im, const double &timestamp, 
     // Check reset
     {
         unique_lock<mutex> lock(mMutexReset);
-        if(mbReset)
+        if(mbReset)//重置tracker
         {
             mpTracker->Reset();
             mbReset = false;

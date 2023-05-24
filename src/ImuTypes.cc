@@ -244,6 +244,7 @@ void Preintegrated::Reintegrate()
  * @param[in] angVel        陀螺仪数据
  * @param[in] dt            两图像 帧之间时间差
  */
+//获得PVQ增量测量值，偏差雅各比 和 噪声递推协方差矩阵
 void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration, const Eigen::Vector3f &angVel, const float &dt)
 {
     // 保存imu数据，利用中值积分的结果构造一个预积分类保存在mvMeasurements中
@@ -303,7 +304,7 @@ void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration,
     // Compute rotation parts of matrices A and B
     // 补充AB矩阵
     A.block<3, 3>(0, 0) = dRi.deltaR.transpose();
-    B.block<3, 3>(0, 0) = dRi.rightJ * dt;
+    B.block<3, 3>(0, 0) = dRi.rightJ * dt; //更新值
 
     // 小量delta初始为0，更新后通常也为0，故省略了小量的更新
     // Update covariance
